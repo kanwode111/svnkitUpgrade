@@ -336,4 +336,25 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 		return false;
 	}
 
+	@Override
+	public boolean isNeeadUpdate(String path) {
+		try {
+		if(path == null || path.trim().length() == 0)
+			throw new Exception(ErrorVal.Path_no_having);
+		List<File> files = this.getAllFile(null, path);
+		for(File file : files) {
+			List<String> str = this.diffPath(file);
+			if( str != null)
+			 return true;
+		}
+		}catch (SVNException e) {
+			super.log(e);
+			e.printStackTrace();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return false;
+	}
+
 }

@@ -133,6 +133,13 @@ public interface ISvn extends ISvnService {
 	public List<String> diffAllPath(String path);
 	
 	/**
+	 * 比较指定路径下文件是否需要更新
+	 * @param path
+	 * @return
+	 */
+	public boolean isNeeadUpdate(String path);
+	
+	/**
 	 * 获取路径下的所有文件列表
 	 * @param path
 	 * @return

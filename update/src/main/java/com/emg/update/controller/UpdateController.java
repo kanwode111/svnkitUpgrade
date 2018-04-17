@@ -116,9 +116,9 @@ public class UpdateController {
 	@RequestMapping(value = "/needUpgrade", method = RequestMethod.GET,produces="application/json;charset=UTF-8")
 	public String needUpgrade(String path) {
 		// boolean flag = false;
-		List<String> result = svn.diffAllPath(path);
-
-		return "{\"result\":\"yes\"}";
+		boolean result = svn.isNeeadUpdate(path);
+		if (result) return "{\"result\":\"yes\"}";
+		return "{\"result\":\"no\"}";
 	}
 
 	@ResponseBody
