@@ -1,7 +1,6 @@
 package com.emg.svn.impl;
 
 import java.io.File;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -10,7 +9,9 @@ import java.util.List;
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNDirEntry;
 import org.tmatesoft.svn.core.SVNException;
+import org.tmatesoft.svn.core.SVNNodeKind;
 import org.tmatesoft.svn.core.SVNURL;
+import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.wc.SVNDiffClient;
 import org.tmatesoft.svn.core.wc.SVNRevision;
 import org.tmatesoft.svn.core.wc.SVNStatus;
@@ -78,7 +79,7 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 	}
 
 	@Override
-	public boolean checkOut(String checkUrl, String savePath) {
+	public long checkOut(String checkUrl, String savePath) {
 		SVNUpdateClient updateClient = clientManager.getUpdateClient();
 		updateClient.setIgnoreExternals(false);
 		try {
@@ -91,16 +92,17 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 				save.mkdir();
 			super.log(updateClient.getClass().toString() + "updateClient类");
 			
-			updateClient.doCheckout(SVNURL.parseURIEncoded(checkUrl), save, SVNRevision.HEAD, SVNRevision.HEAD, SVNDepth.INFINITY, false);
+			long length = updateClient.doCheckout(SVNURL.parseURIEncoded(checkUrl), save, SVNRevision.HEAD, SVNRevision.HEAD, SVNDepth.INFINITY, false);
+			// updateClient.
 			super.log("检出版本库信息");
-			return true;
+			return length;
 		} catch (SVNException e) {
 			super.log(e);
 			e.printStackTrace();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		return false;
+		return 0L;
 	}
 
 	/**
@@ -226,6 +228,40 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 		}
 		return false;
 	}
+	
+	/**
+	 * 获取所有文件，以及路径
+	 * @param fileList
+	 * @param path
+	 * @return
+	 */
+	private List<File> getAllFileWithDir(List<File> fileList,String path) {
+		if (fileList == null)
+			fileList = new ArrayList<File>();
+		File dirFile = new File(path);
+		if(dirFile.isHidden()) return fileList;
+		if (dirFile.exists()) {
+			fileList.add(dirFile);
+			File[] files = dirFile.listFiles();
+			if (files == null)
+				return fileList;
+			for (File fileChildDir : files) {
+				// 输出文件名或者文件夹名
+				// System.out.print(fileChildDir.getName());
+				if (fileChildDir.isDirectory()) {
+					// System.out.println(" :  此为目录名");
+					// 通过递归的方式,可以把目录中的所有文件全部遍历出来
+					fileList.add(fileChildDir);
+					getAllFile(fileList, fileChildDir.getAbsolutePath());
+				}
+				if (fileChildDir.isFile()) {
+					// System.out.println(fileChildDir.getName());
+					fileList.add(fileChildDir);
+				}
+			}
+		}
+		return fileList;
+	}
 
 	@Override
 	public List<File> getAllFile(List<File> fileList,String path){
@@ -234,6 +270,7 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 		File dirFile = new File(path);
 		if(dirFile.isHidden()) return fileList;
 		if (dirFile.exists()) {
+			
 			File[] files = dirFile.listFiles();
 			if (files == null)
 				return fileList;
@@ -287,6 +324,7 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 			diffClient.setIgnoreExternals(false);
 			StringOutputSteam os = new StringOutputSteam(new ArrayList<String>());
 			// diffClient.
+			
 			diffClient.doDiff(file , SVNRevision.HEAD, SVNRevision.BASE, SVNRevision.HEAD, SVNDepth.INFINITY, true, os, result);
 			super.log(file.getName() + "比对库路径");
 			if(result != null) {
@@ -302,7 +340,6 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 			e.printStackTrace();
 		}
 		return null;
-
 	}
 
 	@Override
@@ -335,6 +372,87 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 		// TODO Auto-generated method stub
 		return false;
 	}
+	
+	/**
+	 * 获得指定文件
+	 * @param path
+	 * @param orginPath
+	 * @return
+	 */
+	public File getFile(String path, String orginPath) {
+		List<File> files = this.getAllFileWithDir(null, orginPath);
+		String temp = path.replaceAll("/", "\\\\");
+		for(File file : files) {
+			String filename = file.getPath();
+			if(filename.equals(temp)) return file;
+			
+		}
+		return null;
+	}
+	
+	public List<String> diffURL(String rootUrl, SVNURL fileUrl, String rootPath) {
+		List<String> result = new ArrayList<String>();
+		try {
+			if (rootUrl == null || fileUrl == null)
+				throw new Exception(ErrorVal.Path_no_having);
+			// 获取SVNDiffClient
+			SVNDiffClient diffClient = clientManager.getDiffClient();
+			diffClient.setIgnoreExternals(false);
+			StringOutputSteam os = new StringOutputSteam(new ArrayList<String>());
+			// diffClient.
+			String urlTemp = fileUrl.toString();
+			String fileName = rootPath + urlTemp.substring(urlTemp.indexOf(rootUrl) + rootUrl.length());
+			
+			File file = this.getFile(fileName, rootPath);
+			
+			if(file == null) {
+				os.close();
+				return os.s;
+			}
+			if(file.isDirectory()) return null;
+			diffClient.doDiff(fileUrl , SVNRevision.HEAD, file, SVNRevision.HEAD, SVNDepth.INFINITY, true, os, result);
+			super.log(file.getName() + "比对库路径");
+			if(result != null) {
+				for(String str : result) {
+					super.log("存在的差异：" + str );
+				}
+			}
+			return os.s;
+		} catch (SVNException e) {
+			super.log(e);
+			e.printStackTrace();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	/**
+	 * 根据URL比较是否有变化
+	 * @param url
+	 * @return
+	 */
+	@Override
+	public boolean isNeeadUpdateURL(String url,String path) {
+		try {
+		if(url == null || url.trim().length() == 0)
+			throw new Exception(ErrorVal.Path_no_having);
+		List<SVNDirEntry> files = this.listFolder(url);
+		if(files == null || files.size() == 0) return true;
+		for(SVNDirEntry file : files) {
+			List<String> str = this.diffURL(url, file.getURL(), path);
+			if( str != null)
+			 return true;
+		}
+		}catch (SVNException e) {
+			super.log(e);
+			e.printStackTrace();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return false;
+	}
 
 	@Override
 	public boolean isNeeadUpdate(String path) {
@@ -342,6 +460,7 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 		if(path == null || path.trim().length() == 0)
 			throw new Exception(ErrorVal.Path_no_having);
 		List<File> files = this.getAllFile(null, path);
+		if(files == null || files.size() == 0) return true;
 		for(File file : files) {
 			List<String> str = this.diffPath(file);
 			if( str != null)
@@ -356,5 +475,51 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 		
 		return false;
 	}
+
+	@Override
+	public List<SVNDirEntry> listFolder(String url) {
+		if(checkPath(url)==1){  
+            
+            SVNRepository repository = createRepository(url);  
+            try {  
+                Collection<SVNDirEntry> list = repository.getDir("", -1, null, (List<SVNDirEntry>)null);  
+                List<SVNDirEntry> dirs = new ArrayList<SVNDirEntry>(list.size());  
+                dirs.addAll(list);  
+                return dirs;  
+            } catch (SVNException e) {  
+            	super.log("listFolder error" + e);  
+            }  
+  
+        }  
+        return null;  
+	}
+	
+	/**检查路径是否存在 
+     * @param url 
+     * @return 1：存在    0：不存在   -1：出错 
+     */  
+    public int checkPath(String url){  
+        SVNRepository repository = createRepository(url);  
+        SVNNodeKind nodeKind;  
+        try {  
+            nodeKind = repository.checkPath("", -1);  
+            boolean result = nodeKind == SVNNodeKind.NONE ? false : true;  
+            if(result) return 1;  
+        } catch (SVNException e) {  
+            super.log("checkPath error",e.getMessage());  
+            return -1;  
+        }  
+        return 0;  
+    }  
+    
+    private SVNRepository createRepository(String url){  
+        
+        try {  
+            return clientManager.createRepository(SVNURL.parseURIEncoded(url), true);  
+        } catch (SVNException e) {  
+            super.log("createRepository error",e.getMessage());  
+        }  
+        return null;  
+    }  
 
 }

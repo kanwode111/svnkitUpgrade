@@ -3,6 +3,9 @@ package com.emg.svn.inf;
 import java.io.File;
 import java.util.List;
 
+import org.tmatesoft.svn.core.SVNDirEntry;
+import org.tmatesoft.svn.core.SVNException;
+
 import com.emg.svn.inf.service.ISvnDbLog;
 import com.emg.svn.inf.service.ISvnService;
 import com.emg.svn.model.SvnRepoPojo;
@@ -37,7 +40,7 @@ public interface ISvn extends ISvnService {
 	 * @author Allen
 	 * @date 2016年8月11日
 	 */
-	public boolean checkOut(String checkUrl, String savePath);
+	public long checkOut(String checkUrl, String savePath);
 
 	/**
 	 * 添加到版本库
@@ -140,11 +143,26 @@ public interface ISvn extends ISvnService {
 	public boolean isNeeadUpdate(String path);
 	
 	/**
+	 * 根据svnurl比较是否需要更新
+	 * @param url svn根路径
+	 * @param path 本地要路径
+	 * @return
+	 */
+	public boolean isNeeadUpdateURL(String url, String path);
+	
+	/**
 	 * 获取路径下的所有文件列表
 	 * @param path
 	 * @return
 	 */
 	public List<File> getAllFile(List<File> files, String path);
+	
+	 /**列出指定SVN 地址目录下的子目录 
+     * @param url 
+     * @return 
+     * @throws SVNException 
+     */  
+    public List<SVNDirEntry> listFolder(String url); 
 
 	/**
 	 * 清理目录

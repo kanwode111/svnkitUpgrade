@@ -15,7 +15,6 @@ import com.emg.svn.inf.service.ISvnService;
 /**
  * {@link ISvnService}
  * 
- * @author Allen
  * @date 2016年8月8日
  */
 public class SvnServiceImpl extends SvnCommonImpl implements ISvnService {
@@ -57,7 +56,8 @@ public class SvnServiceImpl extends SvnCommonImpl implements ISvnService {
 			SVNRepository repository = SVNRepositoryFactory.create(SVNURL.parseURIEncoded(this.svnRepoPath), null);
 			super.log("创建版本库连接");
 			// 身份验证
-			this.authManager = SVNWCUtil.createDefaultAuthenticationManager(this.svnAccount, this.svnPassword);
+			this.authManager = SVNWCUtil.createDefaultAuthenticationManager(this.svnAccount, this.svnPassword.toCharArray());
+			// this.authManager = SVNWCUtil.createSVNClientManager();
 			super.log("创建身份验证");
 			// 创建身份验证管理器
 			repository.setAuthenticationManager(authManager);
@@ -96,14 +96,7 @@ public class SvnServiceImpl extends SvnCommonImpl implements ISvnService {
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
-		
-		// DefaultSVNOptions options = SVNWCUtil.createDefaultOptions(true);
-		// DefaultSVNOptions options = SVNWCUtil.createDefaultOptions(null, true); 
-		DefaultSVNOptions options = new DefaultSVNOptions(null, true);
-        clientManager = SVNClientManager.newInstance(options,  
-                authManager);  
-		
-		// clientManager = SVNClientManager.newInstance(SVNWCUtil.createDefaultOptions(true), authManager);
+		clientManager = SVNClientManager.newInstance(SVNWCUtil.createDefaultOptions(true), authManager);
 		super.log("创建svn客户操作服务");
 		return clientManager;
 	}

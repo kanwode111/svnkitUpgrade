@@ -315,7 +315,7 @@ public class exmple {
     public  String callInterfaceGET(){
         HttpClient httpClient = new DefaultHttpClient();
 
-        HttpGet httpGet = new HttpGet("http://localhost:8080/update/upgradeManager/connectSVN?host=" + path + "&username=" + account + "&password=" + password );
+        HttpPost httpGet = new HttpPost("http://localhost:8080/update/upgradeManager/connectSVN?host=" + path + "&username=" + account + "&password=" + password );
         
         String entityStr = null;
         try {
@@ -338,7 +338,7 @@ public class exmple {
     public  String callInterfacePost(){
         HttpClient httpClient = new DefaultHttpClient();
 
-        HttpPost httpPost = new HttpPost("http://localhost:8080/update/upgradeManager/updateProject?host=" + path + "&isAll=true&path=d:/测试"  );
+        HttpPost httpPost = new HttpPost("http://localhost:8080/update/upgradeManager/updateProject?host=" + path + "&isAll=true&path=d:/"  );
         
         String entityStr = null;
         try {
@@ -363,11 +363,17 @@ public class exmple {
 
 	public static void main(String[] args) throws Exception {
 		
-		exmple e = new exmple();
+		/*exmple e = new exmple();
 		// System.out.println(e.getClass().getName());
 		e.callInterfaceGET();
-		e.callInterfacePost();
+		e.callInterfacePost();*/
 		//e.testCore();
 	// new exmple().testCore();
+		
+		String filename = "d:\test\test".replaceAll("\\\\", "/");
+		
+		String temp = "d:/test/test".replaceAll("/", "\\\\");
+		System.out.println(filename);
+		System.out.println(temp);
 	}
 }
