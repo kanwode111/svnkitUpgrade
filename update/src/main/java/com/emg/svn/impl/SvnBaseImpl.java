@@ -1,15 +1,22 @@
 package com.emg.svn.impl;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNDirEntry;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNNodeKind;
+import org.tmatesoft.svn.core.SVNProperties;
+import org.tmatesoft.svn.core.SVNProperty;
+import org.tmatesoft.svn.core.SVNPropertyValue;
 import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.wc.SVNDiffClient;
@@ -26,6 +33,7 @@ import com.emg.svn.inf.service.ISvnDbLog;
 import com.emg.svn.inf.service.ISvnService;
 import com.emg.svn.model.SvnRepoPojo;
 import com.emg.svn.tools.StringOutputSteam;
+import com.google.gson.Gson;
 
 /**
  * 
@@ -40,6 +48,8 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 	public SvnBaseImpl(String account, String password, boolean logStatus, String repoPath) {
 		super(account, password, logStatus, repoPath);
 	}
+	
+	
 
 	@SuppressWarnings("unchecked")
 	@Override
@@ -437,7 +447,7 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 		try {
 		if(url == null || url.trim().length() == 0)
 			throw new Exception(ErrorVal.Path_no_having);
-		List<SVNDirEntry> files = this.listFolder(url);
+		List<SVNDirEntry> files = this.listFolder(null, url);
 		if(files == null || files.size() == 0) return true;
 		for(SVNDirEntry file : files) {
 			List<String> str = this.diffURL(url, file.getURL(), path);
@@ -477,14 +487,19 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 	}
 
 	@Override
-	public List<SVNDirEntry> listFolder(String url) {
+	public List<SVNDirEntry> listFolder(List<SVNDirEntry> dirs , String url) {
 		if(checkPath(url)==1){  
             
             SVNRepository repository = createRepository(url);  
             try {  
                 Collection<SVNDirEntry> list = repository.getDir("", -1, null, (List<SVNDirEntry>)null);  
-                List<SVNDirEntry> dirs = new ArrayList<SVNDirEntry>(list.size());  
+                if (dirs == null) dirs = new ArrayList<SVNDirEntry>(list.size());  
                 dirs.addAll(list);  
+                for(SVNDirEntry entry : list) {
+                	if(entry.getKind() == SVNNodeKind.DIR) {
+                		listFolder(dirs, entry.getURL().toString());
+                	}
+                }
                 return dirs;  
             } catch (SVNException e) {  
             	super.log("listFolder error" + e);  
@@ -493,6 +508,19 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
         }  
         return null;  
 	}
+	
+	
+	/* //获取版本库的path目录下的所有条目。参数－1表示是最新版本。
+    Collection entries = repository.getDir(path, -1, null,(Collection) null);
+    Iterator iterator = entries.iterator();
+    while (iterator.hasNext()) {
+        SVNDirEntry entry = (SVNDirEntry) iterator.next();
+        System.out.println("/" + (path.equals("") ? "" : path + "/") + entry.getName());
+        if (entry.getKind() == SVNNodeKind.DIR) {
+            listEntries(repository, (path.equals("")) ? entry.getName(): path + "/" + entry.getName());
+        }
+    }
+}*/
 	
 	/**检查路径是否存在 
      * @param url 
@@ -520,6 +548,69 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
             super.log("createRepository error",e.getMessage());  
         }  
         return null;  
-    }  
+    }
+
+
+
+	@Override
+	public OutputStream getFile(String url) {
+		if(url == null) return null;
+		File file = null;
+		OutputStream out = null;
+		try {
+			SVNURL svnurl = SVNURL.parseURIEncoded(url);
+	        // String filePath = "test/init11.txt";
+	        //修订版本号，-1代表一个无效的修订版本号，代表必须是最新的修订版
+	        long revisionNum = -1;
+	        // SVNRepository svnRepository = SVNRepositoryFactory.create(svnurl);
+	        SVNRepository svnRepository = createRepository(url);
+	        SVNNodeKind svnNodeKind = svnRepository.checkPath("",revisionNum);
+	        if(svnNodeKind == SVNNodeKind.NONE){
+	            System.out.println("This is no entry at " + svnurl.getPath());
+	            System.exit(1);
+	        }else if(svnNodeKind == SVNNodeKind.DIR){
+	            System.out.println("The entry at '" + svnurl.getPath() + "' is a directory while a file was expected.");
+	            /*System.exit(1);*/
+	            return null;
+	        }else{
+	            System.out.println("SVNNodeKind的值：" + svnNodeKind);
+	        }
+	        out = new ByteArrayOutputStream();
+	        
+	        SVNProperties svnProperties = new SVNProperties();
+	        //若svnProperties对象非空，使用vnProperties属性接收文件的属性
+	        svnRepository.getFile(svnurl.getPath(),-1,svnProperties ,out);
+	        /*
+	         * 输出文件属性
+	         
+	        System.err.println("文件属性：");
+	        Map<String,SVNPropertyValue> svnPropertiesMap = svnProperties.asMap();
+	        Iterator<String> it = svnPropertiesMap.keySet().iterator();
+	        while(it.hasNext()){
+	            String key = it.next();
+	            System.err.println(key + " : " + svnPropertiesMap.get(key));
+	        }
+	        //序列化看下svnProperrties中的数据
+	        Gson gson = new Gson();
+	        System.err.println(gson.toJson(svnProperties));
+	        
+	         *  文件是否是文本类型的文件，文本类型文件输出文件内容
+	         
+	        System.err.println("文件内容：");
+	        String mimeType = svnProperties.getStringValue(SVNProperty.MIME_TYPE);
+	        System.err.println("mimeType is :" + mimeType);
+	        boolean isTextType = SVNProperty.isTextMimeType(mimeType);
+	        if(isTextType){
+	            System.err.println("The file is a text file,this is contents:");
+	            // out.writeTo(System.err);
+	        }else{
+	            System.err.println("The file is not a text file,we can't read content of it.");
+	        }*/
+	    
+		} catch (SVNException e) {
+			e.printStackTrace();
+		} 
+		return out;
+	}  
 
 }

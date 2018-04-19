@@ -11,10 +11,10 @@ import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
+import org.tmatesoft.svn.core.SVNDirEntry;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNNodeKind;
 import org.tmatesoft.svn.core.SVNURL;
@@ -27,7 +27,11 @@ import com.emg.svn.factory.DemoSvn;
 import com.emg.svn.inf.ISvn;
 import com.emg.svn.inf.service.ISvnDbLog;
 import com.emg.svn.model.SvnRepoPojo;
+import com.emg.update.dto.FileModel;
+import com.emg.update.tool.DataUtil;
 
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
 
 /**
  * 测试类
@@ -41,6 +45,7 @@ public class exmple {
 	String path = "svn://127.0.0.1/autoUpgrade";
 	String targetHead = "d:/测试";
 	ISvn svn;
+	SVNClientManager manager;
 
 	/**
 	 * 样例
@@ -59,53 +64,59 @@ public class exmple {
 		// 得到版本库信息
 		SVNRepository repository = svn.createSVNRepository();
 		// 得到基础操作对象
-		SVNClientManager manager = svn.createSVNClientManager();
-		
-		/*repository.checkPath(targetHead + "/.svn/entries", -1);
-		repository.checkPath(targetHead + "/pom.xml", -1);*/
-		System.out.println(".svn/entries is exist" + checkPath(manager, targetHead +"/.svn/entries"));
-		System.out.println("pom.xml is exist" + checkPath(manager, targetHead + "/pom.xml"));
+		 manager = svn.createSVNClientManager();
+
+		List<SVNDirEntry> list = svn.listFolder(null, path);
+		// list.get(1).
+		/*
+		 * repository.checkPath(targetHead + "/.svn/entries", -1);
+		 * repository.checkPath(targetHead + "/pom.xml", -1);
+		 */
 		/** 测试--Start-- **/
-		testGetRepo();
-		//testCheckOut();
+		// testGetRepo();
+		testCheckOut();
 		// testAdd();
 		// testDel();
-		//testCleanUp();
-		//testUpdate();
-		testDiff();
+		// testCleanUp();
+		// testUpdate();
+		// testDiff();
 		/** 测试 --End-- **/
+		
+		
 		// 关闭库容器
 		svn.closeRepo();
 		// SVNURL url1 = getRepositoryAccess().getTargetURL(target1);
 
 	}
-	
+
 	public void checkFile(File file) {
-		// getRepositoryAccess().getURLFromPath(SvnTarget.fromFile(file), SVNRevision.UNDEFINED, null).<SVNURL>get(SvnRepositoryAccess.UrlInfo.url);
-		
+		// getRepositoryAccess().getURLFromPath(SvnTarget.fromFile(file),
+		// SVNRevision.UNDEFINED, null).<SVNURL>get(SvnRepositoryAccess.UrlInfo.url);
+
 	}
-	
-	/**检查路径是否存在 
-     * @param url 
-     * @return 1：存在    0：不存在   -1：出错 
-     */  
-    public int checkPath(SVNClientManager manager, String url){  
-    	try {  
-        SVNRepository repository = manager.createRepository(SVNURL.parseURIEncoded(url), true);  
-        
-        SVNNodeKind nodeKind;  
-        
-            nodeKind = repository.checkPath("", -1);  
-            boolean result = nodeKind == SVNNodeKind.NONE ? false : true;  
-            if(result) return 1;  
-        } catch (SVNException e) {  
-            /*logger.error("checkPath error",e); */ 
-            return -1;  
-        }  
-        return 0;  
-    }  
-  
-	
+
+	/**
+	 * 检查路径是否存在
+	 * 
+	 * @param url
+	 * @return 1：存在 0：不存在 -1：出错
+	 */
+	public int checkPath(SVNClientManager manager, String url) {
+		try {
+			SVNRepository repository = manager.createRepository(SVNURL.parseURIEncoded(url), true);
+
+			SVNNodeKind nodeKind;
+
+			nodeKind = repository.checkPath("", -1);
+			boolean result = nodeKind == SVNNodeKind.NONE ? false : true;
+			if (result)
+				return 1;
+		} catch (SVNException e) {
+			/* logger.error("checkPath error",e); */
+			return -1;
+		}
+		return 0;
+	}
 
 	/**
 	 * 获得版本路径文件信息
@@ -246,29 +257,29 @@ public class exmple {
 	private void testDiff() {
 		// String[] strs = new String[] { targetHead + "/src/main/java/com/svn/conf" };
 
-		// String[] strs = new String[] { targetHead + "/autoUpgrade/src/main/java/com/svn/conf/ErrorVal.java" };
+		// String[] strs = new String[] { targetHead +
+		// "/autoUpgrade/src/main/java/com/svn/conf/ErrorVal.java" };
 		// List<String> s = svn.diffPath(new File(strs[0]));
 		// List<String> s = svn.diffAllPath(targetHead + "/autoUpgrade");
-		List<String> s = svn.diffAllPath(targetHead );
-		if (s == null) return;
+		List<String> s = svn.diffAllPath(targetHead);
+		if (s == null)
+			return;
 		for (String t : s)
 			System.out.println(t);
 	}
-	
-	/*public void isFileExist() {
-		final DirParsedInfo wcInfo = obtainWcRoot(localAbsPath, isAdditionMode);
-        final File localRelPath = wcInfo.localRelPath;
-        SVNWCDbRoot wcRoot = wcInfo.wcDbDir.getWCRoot();
-        return readInfo(wcRoot, localRelPath, fields);
-	}
-		SVNSqlJetStatement stmtInfo = null;
-        SVNSqlJetStatement stmtActual = null;
-        
-        try {
-            stmtInfo = wcRoot.getSDb().getStatement(info.hasField(NodeInfo.lock) ? SVNWCDbStatements.SELECT_NODE_INFO_WITH_LOCK : SVNWCDbStatements.SELECT_NODE_INFO);
-            stmtInfo.bindf("is", wcRoot.getWcId(), localRelPath);
-            boolean haveInfo = stmtInfo.next();
-	}*/
+
+	/*
+	 * public void isFileExist() { final DirParsedInfo wcInfo =
+	 * obtainWcRoot(localAbsPath, isAdditionMode); final File localRelPath =
+	 * wcInfo.localRelPath; SVNWCDbRoot wcRoot = wcInfo.wcDbDir.getWCRoot(); return
+	 * readInfo(wcRoot, localRelPath, fields); } SVNSqlJetStatement stmtInfo = null;
+	 * SVNSqlJetStatement stmtActual = null;
+	 * 
+	 * try { stmtInfo = wcRoot.getSDb().getStatement(info.hasField(NodeInfo.lock) ?
+	 * SVNWCDbStatements.SELECT_NODE_INFO_WITH_LOCK :
+	 * SVNWCDbStatements.SELECT_NODE_INFO); stmtInfo.bindf("is", wcRoot.getWcId(),
+	 * localRelPath); boolean haveInfo = stmtInfo.next(); }
+	 */
 
 	private void testCleanUp() {
 		String[] strs = new String[] { targetHead + "/autoUpgrade/src/main/java" };
@@ -309,71 +320,135 @@ public class exmple {
 			System.out.print("\r\n");
 		}
 	}
+
+	// get接口掉方法
+	public String connect() {
+		HttpClient httpClient = new DefaultHttpClient();
+
+		HttpPost httpGet = new HttpPost("http://localhost:8080/update/upgradeManager/connectSVN?host=" + path
+				+ "&username=" + account + "&password=" + password);
+
+		String entityStr = null;
+		try {
+			HttpResponse httpResponse = httpClient.execute(httpGet);
+			HttpEntity entity = httpResponse.getEntity();
+			StatusLine statusLine = httpResponse.getStatusLine();
+			int statusCode = statusLine.getStatusCode();
+			System.out.println("statusCode:" + statusCode);
+			entityStr = EntityUtils.toString(entity);
+			System.out.println("响应返回内容:" + entityStr);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return entityStr;
+	}
+
+	// get接口掉方法
+	public String getCheckoutList() {
+		HttpClient httpClient = new DefaultHttpClient();
+		String entityStr = null;
+		String files = "{\"files\":[{\"filename\":\"d:\\\\test\\\\pom.xml\", \"updatetime\": \"20180418 16:03\", \"filesize\":\"102B\" }]}";
+		try {
+
+			files = java.net.URLEncoder.encode(files, "utf-8");
+			// HttpPost httpPost = new
+			// HttpPost("http://localhost:8080/update/upgradeManager/needUpgradeWithJSON?files="
+			// + files );
+			HttpPost httpPost = new HttpPost(
+					"http://localhost:8080/update/upgradeManager/checkoutFileList?url=" + path);
+
+			HttpResponse httpResponse = httpClient.execute(httpPost);
+			HttpEntity entity = httpResponse.getEntity();
+			StatusLine statusLine = httpResponse.getStatusLine();
+			int statusCode = statusLine.getStatusCode();
+			System.out.println("statusCode:" + statusCode);
+			entityStr = EntityUtils.toString(entity);
+			System.out.println("响应返回内容:" + entityStr);
+			
+			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return entityStr;
+	}
 	
-	
-  //get接口掉方法
-    public  String callInterfaceGET(){
-        HttpClient httpClient = new DefaultHttpClient();
+	// get接口掉方法
+		public String checkoutFile(String str) {
+			HttpClient httpClient = new DefaultHttpClient();
+			String entityStr = null;
+			// String files = "{\"files\":[{\"filename\":\"test\", \"filesize\":\"0\", \"version\":\"3\", \"updatetime\":\"2018-04-12 10:36:23\", \"svnurl\":\"svn://127.0.0.1/autoUpgrade/test\"},{\"filename\":\".classpath\", \"filesize\":\"1491\", \"version\":\"4\", \"updatetime\":\"2018-04-13 09:41:06\", \"svnurl\":\"svn://127.0.0.1/autoUpgrade/.classpath\"},{\"filename\":\".project\", \"filesize\":\"1087\", \"version\":\"3\", \"updatetime\":\"2018-04-12 10:36:23\", \"svnurl\":\"svn://127.0.0.1/autoUpgrade/.project\"},{\"filename\":\"target\", \"filesize\":\"0\", \"version\":\"4\", \"updatetime\":\"2018-04-13 09:41:06\", \"svnurl\":\"svn://127.0.0.1/autoUpgrade/target\"},{\"filename\":\"src\", \"filesize\":\"0\", \"version\":\"5\", \"updatetime\":\"2018-04-17 17:25:26\", \"svnurl\":\"svn://127.0.0.1/autoUpgrade/src\"},{\"filename\":\"WebContent\", \"filesize\":\"0\", \"version\":\"4\", \"updatetime\":\"2018-04-13 09:41:06\", \"svnurl\":\"svn://127.0.0.1/autoUpgrade/WebContent\"},{\"filename\":\"pom.xml\", \"filesize\":\"10492\", \"version\":\"6\", \"updatetime\":\"2018-04-17 17:25:57\", \"svnurl\":\"svn://127.0.0.1/autoUpgrade/pom.xml\"},{\"filename\":\".settings\", \"filesize\":\"0\", \"version\":\"4\", \"updatetime\":\"2018-04-13 09:41:06\", \"svnurl\":\"svn://127.0.0.1/autoUpgrade/.settings\"},{\"filename\":\"java\", \"filesize\":\"0\", \"version\":\"3\", \"updatetime\":\"2018-04-12 10:36:23\", \"svnurl\":\"svn://127.0.0.1/autoUpgrade/test/java\"},{\"filename\":\"SvnKitTest.java\", \"filesize\":\"3426\", \"version\":\"3\", \"updatetime\":\"2018-04-12 10:36:23\", \"svnurl\":\"svn://127.0.0.1/autoUpgrade/test/java/SvnKitTest.java\"},{\"filename\":\"generated-sources\", \"filesize\":\"0\", \"version\":\"4\", \"updatetime\":\"2018-04-13 09:41:06\", \"svnurl\":\"svn://127.0.0.1/autoUpgrade/target/generated-sources\"}]}";
+			try {
+				JSONObject json = JSONObject.fromObject(str);
+				JSONArray array = json.getJSONArray("files");
+				List<FileModel> list = new ArrayList<FileModel>();
+				if (array == null)
+					return null;
+				for (int i = 0; i < array.size(); i++) {
+					JSONObject obj = array.getJSONObject(i);
+					FileModel file = (FileModel) JSONObject.toBean(obj, FileModel.class);
+					
+					
+					HttpPost httpPost = new HttpPost(
+							"http://localhost:8080/update/upgradeManager/downloadFile?file=" + DataUtil.encode(file.toString()));
 
-        HttpPost httpGet = new HttpPost("http://localhost:8080/update/upgradeManager/connectSVN?host=" + path + "&username=" + account + "&password=" + password );
-        
-        String entityStr = null;
-        try {
-            HttpResponse httpResponse = httpClient.execute(httpGet);
-            HttpEntity entity = httpResponse.getEntity();
-            StatusLine statusLine = httpResponse.getStatusLine();
-            int statusCode = statusLine.getStatusCode();
-            System.out.println("statusCode:"+statusCode);
-            entityStr = EntityUtils.toString(entity);
-            System.out.println("响应返回内容:"+entityStr);
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+					HttpResponse httpResponse = httpClient.execute(httpPost);
+					HttpEntity entity = httpResponse.getEntity();
+					StatusLine statusLine = httpResponse.getStatusLine();
+					int statusCode = statusLine.getStatusCode();
+					System.out.println("statusCode:" + statusCode);
+					entityStr = EntityUtils.toString(entity);
+					System.out.println("响应返回内容:" + entityStr);
+				}
+				
+				
+				
+				
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 
-        return entityStr;
-    }
-    
-  //get接口掉方法
-    public  String callInterfacePost(){
-        HttpClient httpClient = new DefaultHttpClient();
+			return entityStr;
+		}
 
-        HttpPost httpPost = new HttpPost("http://localhost:8080/update/upgradeManager/updateProject?host=" + path + "&isAll=true&path=d:/"  );
-        
-        String entityStr = null;
-        try {
-            HttpResponse httpResponse = httpClient.execute(httpPost);
-            HttpEntity entity = httpResponse.getEntity();
-            StatusLine statusLine = httpResponse.getStatusLine();
-            int statusCode = statusLine.getStatusCode();
-            System.out.println("statusCode:"+statusCode);
-            entityStr = EntityUtils.toString(entity);
-            System.out.println("响应返回内容:"+entityStr);
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-
-        return entityStr;
-    }
-    
-	public void testHttp() {
-		
+	public void getFile() {
+		String files = "{\"files\":[{\"filename\":\"d:\\\\test\\\\pom.xml\", \"updatetime\": \"20180418 16:03\", \"filesize\":\"102B\" }]}";
+		JSONObject json = JSONObject.fromObject(files);
+		JSONArray array = json.getJSONArray("files");
+		List<FileModel> list = new ArrayList<FileModel>();
+		if (array == null)
+			return;
+		for (int i = 0; i < array.size(); i++) {
+			JSONObject obj = array.getJSONObject(i);
+			FileModel file = (FileModel) JSONObject.toBean(obj, FileModel.class);
+			if (file != null)
+				list.add(file);
+		}
+		System.out.println(json.toString());
 	}
 
 	public static void main(String[] args) throws Exception {
+
+		exmple e = new exmple();
+
+		e.connect();
+		String str = e.getCheckoutList();
+		e.checkoutFile(str);
 		
-		/*exmple e = new exmple();
-		// System.out.println(e.getClass().getName());
-		e.callInterfaceGET();
-		e.callInterfacePost();*/
-		//e.testCore();
-	// new exmple().testCore();
-		
-		String filename = "d:\test\test".replaceAll("\\\\", "/");
-		
-		String temp = "d:/test/test".replaceAll("/", "\\\\");
-		System.out.println(filename);
-		System.out.println(temp);
+		// e.testCore();
+		// new exmple().testCore();
+
+		/*
+		 * String filename = "d:\test\test".replaceAll("\\\\", "/");
+		 * 
+		 * String temp = "d:/test/test".replaceAll("/", "\\\\");
+		 * System.out.println(filename); System.out.println(temp); }
+		 */
+
+		// e.getFile();
 	}
 }

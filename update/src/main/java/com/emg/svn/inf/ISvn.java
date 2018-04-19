@@ -1,6 +1,7 @@
 package com.emg.svn.inf;
 
 import java.io.File;
+import java.io.OutputStream;
 import java.util.List;
 
 import org.tmatesoft.svn.core.SVNDirEntry;
@@ -162,7 +163,13 @@ public interface ISvn extends ISvnService {
      * @return 
      * @throws SVNException 
      */  
-    public List<SVNDirEntry> listFolder(String url); 
+    public List<SVNDirEntry> listFolder(List<SVNDirEntry> dirs, String url); 
+    
+    /**
+     * 根据SVN地址获取指定的文件
+     * @return
+     */
+    public OutputStream getFile(String url);
 
 	/**
 	 * 清理目录
