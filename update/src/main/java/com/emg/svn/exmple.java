@@ -1,7 +1,9 @@
 package com.emg.svn;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -29,6 +31,7 @@ import com.emg.svn.inf.service.ISvnDbLog;
 import com.emg.svn.model.SvnRepoPojo;
 import com.emg.update.dto.FileModel;
 import com.emg.update.tool.DataUtil;
+import com.emg.update.tool.FileUtil;
 
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -336,7 +339,7 @@ public class exmple {
 			int statusCode = statusLine.getStatusCode();
 			System.out.println("statusCode:" + statusCode);
 			entityStr = EntityUtils.toString(entity);
-			System.out.println("响应返回内容:" + entityStr);
+			System.out.println("SVN连接:" + entityStr);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -344,6 +347,55 @@ public class exmple {
 
 		return entityStr;
 	}
+	// get接口掉方法
+		public String needupdate() {
+			HttpClient httpClient = new DefaultHttpClient();
+			String files = this.getFileModel(targetHead);
+			
+			HttpPost httpGet = new HttpPost("http://localhost:8080/update/upgradeManager/needUpgrade?url=" + DataUtil.encode(path)
+					+ "&files=" + DataUtil.encode(files) );
+
+			String entityStr = null;
+			try {
+				HttpResponse httpResponse = httpClient.execute(httpGet);
+				HttpEntity entity = httpResponse.getEntity();
+				StatusLine statusLine = httpResponse.getStatusLine();
+				int statusCode = statusLine.getStatusCode();
+				System.out.println("statusCode:" + statusCode);
+				entityStr = EntityUtils.toString(entity);
+				System.out.println("判断是否要更新:" + entityStr);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+			return entityStr;
+		}
+		
+		// get接口掉方法
+				public String updadeFileList() {
+					HttpClient httpClient = new DefaultHttpClient();
+					String files = this.getFileModel(targetHead);
+					
+					HttpPost httpGet = new HttpPost("http://localhost:8080/update/upgradeManager/updateFileList?url=" + DataUtil.encode(path)
+							+ "&files=" + DataUtil.encode(files) );
+
+					String entityStr = null;
+					try {
+						HttpResponse httpResponse = httpClient.execute(httpGet);
+						HttpEntity entity = httpResponse.getEntity();
+						StatusLine statusLine = httpResponse.getStatusLine();
+						int statusCode = statusLine.getStatusCode();
+						System.out.println("statusCode:" + statusCode);
+						entityStr = EntityUtils.toString(entity);
+						System.out.println("更新列表:" + entityStr);
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+
+					return entityStr;
+				}
 
 	// get接口掉方法
 	public String getCheckoutList() {
@@ -365,7 +417,7 @@ public class exmple {
 			int statusCode = statusLine.getStatusCode();
 			System.out.println("statusCode:" + statusCode);
 			entityStr = EntityUtils.toString(entity);
-			System.out.println("响应返回内容:" + entityStr);
+			System.out.println("获取更新列表:" + entityStr);
 			
 			
 		} catch (Exception e) {
@@ -401,7 +453,12 @@ public class exmple {
 					int statusCode = statusLine.getStatusCode();
 					System.out.println("statusCode:" + statusCode);
 					entityStr = EntityUtils.toString(entity);
-					System.out.println("响应返回内容:" + entityStr);
+					System.out.println("下载更新列表:" + entityStr);
+					JSONObject re = JSONObject.fromObject(entityStr);
+					Base64.Decoder decoder = Base64.getDecoder();
+					String content = re.get("content").toString();
+					
+					System.out.println(new String(decoder.decode(content), "UTF-8"));
 				}
 				
 				
@@ -415,7 +472,7 @@ public class exmple {
 			return entityStr;
 		}
 
-	public void getFile() {
+/*	public void getFile() {
 		String files = "{\"files\":[{\"filename\":\"d:\\\\test\\\\pom.xml\", \"updatetime\": \"20180418 16:03\", \"filesize\":\"102B\" }]}";
 		JSONObject json = JSONObject.fromObject(files);
 		JSONArray array = json.getJSONArray("files");
@@ -429,17 +486,44 @@ public class exmple {
 				list.add(file);
 		}
 		System.out.println(json.toString());
-	}
+	}*/
 
+	/**
+	 * 
+	 * @param path
+	 */
+	public String getFileModel(String path) {
+		
+		List<File> files = FileUtil.getAllFile(null, path);
+		String result = "{\"files\":[";
+		for(File file : files) {
+			file.lastModified();
+			FileModel model = new FileModel();
+			String filepath = FileUtil.replaceRightToLeft(file.getPath());
+			model.setFilename(filepath.substring(filepath.indexOf(path) + path.length()+1));
+			model.setFilesize(file.length());
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			Date date = new Date(file.lastModified());			
+			model.setUpdatetime(sdf.format(date));
+			result += model.toString() + ",";
+		}
+		return result.substring(0, result.length() - 1) + "]}";
+	}
+	
 	public static void main(String[] args) throws Exception {
 
 		exmple e = new exmple();
+		// e.getFileModel("d:/测试");
 
 		e.connect();
+		String flag = e.needupdate();
+		JSONObject json = JSONObject.fromObject(flag);
+		// if(json.get("result").equals("success"))e.updadeFileList();
+		
 		String str = e.getCheckoutList();
 		e.checkoutFile(str);
 		
-		// e.testCore();
+		e.testCore();
 		// new exmple().testCore();
 
 		/*

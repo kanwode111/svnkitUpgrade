@@ -2,6 +2,7 @@ package com.emg.update.controller;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import javax.annotation.Resource;
@@ -26,6 +27,7 @@ import com.emg.svn.inf.ISvn;
 import com.emg.update.dto.FileModel;
 import com.emg.update.service.IUserService;
 import com.emg.update.tool.DataUtil;
+import com.emg.update.tool.FileUtil;
 
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -118,17 +120,6 @@ public class UpgradeController {
 
 	}
 
-	/**
-	 * 判断是否需要更新传递文件列表
-	 * 
-	 * @param path
-	 * @return
-	 */
-	@ResponseBody
-	@RequestMapping(value = "/needUpgradeWithFile", method = RequestMethod.POST, produces = "application/json;charset=UTF-8")
-	public String needUpgrade(List<FileModel> list) {
-		return null;
-	}
 
 	/**
 	 * 判断是否需要更新传递JSON形式文件列表
@@ -137,14 +128,15 @@ public class UpgradeController {
 	 * @return
 	 */
 	@ResponseBody
-	@RequestMapping(value = "/needUpgradeWithJSON", method = RequestMethod.POST, produces = "application/json;charset=UTF-8")
-	public String needUpgrade(String files) {
+	@RequestMapping(value = "/needUpgrade", method = RequestMethod.POST, produces = "application/json;charset=UTF-8")
+	public String needUpgrade(String url, String files) {
+		if(files == null)return "{\"result\":\"success\"}";
 		files = DataUtil.decodeValue(files);
 		List<FileModel> fileList = this.getFileList(files);
 
 		// 如果为空则表示当前为空目录，直接进行下载
 		if (fileList == null)
-			return "{\"result\":\"yes\"}";
+			return "{\"result\":\"success\"}";
 		this.files = fileList;
 		List<SVNDirEntry> list = svn.listFolder(null, url);
 		boolean flag = false;
@@ -154,14 +146,18 @@ public class UpgradeController {
 			if (entry.getKind() == SVNNodeKind.DIR)
 				continue;
 			for (FileModel model : fileList) {
-				if (entry.getName() != model.getFilename())
+				// logger.info(FileUtil.replaceRightToLeft(entry.getURL().getPath()));
+				if (FileUtil.replaceRightToLeft(entry.getURL().getPath()).indexOf(FileUtil.replaceRightToLeft(model.getFilename())) <1)
 					continue;
 				/*
 				 * if(entry.getAuthor() != model.author) { flag = false; break; }
 				 */
-				if (entry.getSize() != model.getFilesize() || entry.getDate() != DataUtil.stringToDate(model.getUpdatetime())
-						|| entry.getRevision() != model.getVersion()) {
-					flag = false;
+				/*if (entry.getSize() != model.getFilesize() || entry.getDate() != DataUtil.stringToDate(model.getUpdatetime())
+						|| entry.getRevision() != model.getVersion()) {*/
+				Date date = DataUtil.stringToDate(model.getUpdatetime());
+				if (entry.getSize() != model.getFilesize() || (date != null && entry.getDate().getTime() > date.getTime())) {
+						
+					flag = true;
 					break;
 				}
 			}
@@ -206,7 +202,27 @@ public class UpgradeController {
 			return JSONObject.fromObject(vo).toString();
 		}
 	}*/
-
+	
+	
+	/**
+	 * 获取需要checkout文件列表
+	 * 
+	 * @return
+	 */
+	@ResponseBody
+	@RequestMapping(value = "/getSVNFileList", method = RequestMethod.POST, produces = "application/json;charset=UTF-8")
+	public String getSVNFileList(String url, String files) {
+		if ((url == null || url.trim().length() == 0) && this.url != null)
+			url = this.url;
+		if ((url == null || url.trim().length() == 0) && this.url != null)
+			url = this.url;
+		if (files == null || files.trim().length() == 0)
+			return this.checkoutFileList(url);
+		
+		// files = DataUtil.decodeValue(files);
+		return this.updateFileList(url, files);
+		// return result;
+	}
 	/**
 	 * 获取需要checkout文件列表
 	 * 
@@ -217,7 +233,9 @@ public class UpgradeController {
 	public String checkoutFileList(String url) {
 		if ((url == null || url.trim().length() == 0) && this.url != null)
 			url = this.url;
+		if(svn == null) return "{\"result\":\"failure\"}"; 
 		List<SVNDirEntry> dirList =  svn.listFolder(null, url);
+		if(dirList == null) return "{\"result\":\"failure\"}"; 
 		String result = "{files:[";
 		for (SVNDirEntry entry : dirList) {
 			
@@ -242,16 +260,12 @@ public class UpgradeController {
 	@ResponseBody
 	@RequestMapping(value = "/updateFileList", method = RequestMethod.POST, produces = "application/json;charset=UTF-8")
 	public String updateFileList(String url, String files) {
-		if ((url == null || url.trim().length() == 0) && this.url != null)
-			url = this.url;
-		if (files == null || files.trim().length() == 0)
-			return this.checkoutFileList(url);
-		String result = "{files:[";
-		files = DataUtil.decodeValue(files);
+		
 		List<FileModel> fileList = this.getFileList(files);
 		// 如果为空则表示当前为空目录，直接进行下载
 		if (fileList == null)
 			return this.checkoutFileList(url);
+		String result = "{files:[";
 
 		List<SVNDirEntry> list = svn.listFolder(null, url);
 		if (list == null || list.size() == 0)
@@ -260,15 +274,20 @@ public class UpgradeController {
 			if (entry.getKind() == SVNNodeKind.DIR)
 				continue;
 			for (FileModel model : fileList) {
-				if (entry.getName() != model.getFilename())
+				if (FileUtil.replaceRightToLeft(entry.getURL().getPath()).indexOf(FileUtil.replaceRightToLeft(model.getFilename())) <1)
 					continue;
-				if (entry.getSize() != model.getFilesize() || entry.getDate() != DataUtil.stringToDate(model.getUpdatetime())
-						|| entry.getRevision() != model.getVersion()) {
-					result += model.toString();
+				/*if (entry.getSize() != model.getFilesize() || entry.getDate() != DataUtil.stringToDate(model.getUpdatetime())
+						|| entry.getRevision() != model.getVersion()) {*/
+				if(model.getSvnurl() == null || model.getSvnurl().trim().length() == 0) model.setSvnurl(entry.getURL().toString());
+				Date date = DataUtil.stringToDate(model.getUpdatetime());
+				if (entry.getSize() != model.getFilesize() || (date != null && entry.getDate().getTime() > date.getTime())) {
+				
+					result += model.toString() + ",";
 				}
 			}
 		}
-		result += "]}";
+		result = result.substring(0, result.length() - 1) + "]}";
+		logger.info(result);
 		return result;
 	}
 	
@@ -291,8 +310,9 @@ public class UpgradeController {
 		result.put("result", "success");*/
 		String str = new String(Base64.encodeBase64(out.toByteArray()));
 		// result.put("content", out.)
+		logger.info("下载成功");
 		// 服务器再用Base64解密–>Gzip解压
-		return "{\"result\":\"success\", \"content\":" + str +  "\",\"filename\":\"" + json.get("filename") +"\"}"; 
+		return "{\"result\":\"success\", \"content\":\"" + str +  "\",\"filename\":\"" + json.get("filename") +"\", \"svnurl\":\"" +json.get("svnurl") + "\"}"; 
 	}
 
 	/**
@@ -302,6 +322,7 @@ public class UpgradeController {
 	 * @return
 	 */
 	private List<FileModel> getFileList(String files) {
+		if(files == null ||files.trim().length() == 0) return null; 
 		JSONObject json = JSONObject.fromObject(files);
 		JSONArray array = json.getJSONArray("files");
 		List<FileModel> list = new ArrayList<FileModel>();

@@ -2,21 +2,17 @@ package com.emg.svn.impl;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNDirEntry;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNNodeKind;
 import org.tmatesoft.svn.core.SVNProperties;
-import org.tmatesoft.svn.core.SVNProperty;
-import org.tmatesoft.svn.core.SVNPropertyValue;
 import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.wc.SVNDiffClient;
@@ -33,7 +29,7 @@ import com.emg.svn.inf.service.ISvnDbLog;
 import com.emg.svn.inf.service.ISvnService;
 import com.emg.svn.model.SvnRepoPojo;
 import com.emg.svn.tools.StringOutputSteam;
-import com.google.gson.Gson;
+import com.emg.update.tool.FileUtil;
 
 /**
  * 
@@ -239,67 +235,8 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 		return false;
 	}
 	
-	/**
-	 * 获取所有文件，以及路径
-	 * @param fileList
-	 * @param path
-	 * @return
-	 */
-	private List<File> getAllFileWithDir(List<File> fileList,String path) {
-		if (fileList == null)
-			fileList = new ArrayList<File>();
-		File dirFile = new File(path);
-		if(dirFile.isHidden()) return fileList;
-		if (dirFile.exists()) {
-			fileList.add(dirFile);
-			File[] files = dirFile.listFiles();
-			if (files == null)
-				return fileList;
-			for (File fileChildDir : files) {
-				// 输出文件名或者文件夹名
-				// System.out.print(fileChildDir.getName());
-				if (fileChildDir.isDirectory()) {
-					// System.out.println(" :  此为目录名");
-					// 通过递归的方式,可以把目录中的所有文件全部遍历出来
-					fileList.add(fileChildDir);
-					getAllFile(fileList, fileChildDir.getAbsolutePath());
-				}
-				if (fileChildDir.isFile()) {
-					// System.out.println(fileChildDir.getName());
-					fileList.add(fileChildDir);
-				}
-			}
-		}
-		return fileList;
-	}
+	
 
-	@Override
-	public List<File> getAllFile(List<File> fileList,String path){
-		if (fileList == null)
-			fileList = new ArrayList<File>();
-		File dirFile = new File(path);
-		if(dirFile.isHidden()) return fileList;
-		if (dirFile.exists()) {
-			
-			File[] files = dirFile.listFiles();
-			if (files == null)
-				return fileList;
-			for (File fileChildDir : files) {
-				// 输出文件名或者文件夹名
-				// System.out.print(fileChildDir.getName());
-				if (fileChildDir.isDirectory()) {
-					// System.out.println(" :  此为目录名");
-					// 通过递归的方式,可以把目录中的所有文件全部遍历出来
-					getAllFile(fileList, fileChildDir.getAbsolutePath());
-				}
-				if (fileChildDir.isFile()) {
-					// System.out.println(fileChildDir.getName());
-					fileList.add(fileChildDir);
-				}
-			}
-		}
-		return fileList;
-	}
 	
 	@Override
 	public List<String> diffAllPath(String path){
@@ -307,7 +244,7 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 		try {
 		if(path == null || path.trim().length() == 0)
 			throw new Exception(ErrorVal.Path_no_having);
-		List<File> files = this.getAllFile(null, path);
+		List<File> files = FileUtil.getAllFile(null, path);
 		for(File file : files) {
 			List<String> str = this.diffPath(file);
 			if( str != null)
@@ -390,7 +327,7 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 	 * @return
 	 */
 	public File getFile(String path, String orginPath) {
-		List<File> files = this.getAllFileWithDir(null, orginPath);
+		List<File> files = FileUtil.getAllFileWithDir(null, orginPath);
 		String temp = path.replaceAll("/", "\\\\");
 		for(File file : files) {
 			String filename = file.getPath();
@@ -469,7 +406,7 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 		try {
 		if(path == null || path.trim().length() == 0)
 			throw new Exception(ErrorVal.Path_no_having);
-		List<File> files = this.getAllFile(null, path);
+		List<File> files = FileUtil.getAllFile(null, path);
 		if(files == null || files.size() == 0) return true;
 		for(File file : files) {
 			List<String> str = this.diffPath(file);
@@ -494,10 +431,12 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
             try {  
                 Collection<SVNDirEntry> list = repository.getDir("", -1, null, (List<SVNDirEntry>)null);  
                 if (dirs == null) dirs = new ArrayList<SVNDirEntry>(list.size());  
-                dirs.addAll(list);  
+                // dirs.addAll(list);  
                 for(SVNDirEntry entry : list) {
                 	if(entry.getKind() == SVNNodeKind.DIR) {
                 		listFolder(dirs, entry.getURL().toString());
+                	}else if(entry.getKind() == SVNNodeKind.FILE) {
+                		dirs.add(entry);
                 	}
                 }
                 return dirs;  
@@ -555,7 +494,6 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 	@Override
 	public OutputStream getFile(String url) {
 		if(url == null) return null;
-		File file = null;
 		OutputStream out = null;
 		try {
 			SVNURL svnurl = SVNURL.parseURIEncoded(url);
@@ -580,32 +518,6 @@ public class SvnBaseImpl extends SvnServiceImpl implements ISvn {
 	        SVNProperties svnProperties = new SVNProperties();
 	        //若svnProperties对象非空，使用vnProperties属性接收文件的属性
 	        svnRepository.getFile(svnurl.getPath(),-1,svnProperties ,out);
-	        /*
-	         * 输出文件属性
-	         
-	        System.err.println("文件属性：");
-	        Map<String,SVNPropertyValue> svnPropertiesMap = svnProperties.asMap();
-	        Iterator<String> it = svnPropertiesMap.keySet().iterator();
-	        while(it.hasNext()){
-	            String key = it.next();
-	            System.err.println(key + " : " + svnPropertiesMap.get(key));
-	        }
-	        //序列化看下svnProperrties中的数据
-	        Gson gson = new Gson();
-	        System.err.println(gson.toJson(svnProperties));
-	        
-	         *  文件是否是文本类型的文件，文本类型文件输出文件内容
-	         
-	        System.err.println("文件内容：");
-	        String mimeType = svnProperties.getStringValue(SVNProperty.MIME_TYPE);
-	        System.err.println("mimeType is :" + mimeType);
-	        boolean isTextType = SVNProperty.isTextMimeType(mimeType);
-	        if(isTextType){
-	            System.err.println("The file is a text file,this is contents:");
-	            // out.writeTo(System.err);
-	        }else{
-	            System.err.println("The file is not a text file,we can't read content of it.");
-	        }*/
 	    
 		} catch (SVNException e) {
 			e.printStackTrace();

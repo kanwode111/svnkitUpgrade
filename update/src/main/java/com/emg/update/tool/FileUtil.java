@@ -10,7 +10,9 @@ import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.UnsupportedCharsetException;
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import javax.mail.internet.ContentType;
 
@@ -29,6 +31,74 @@ import com.emg.update.dto.DownloadFileResponseModel;
  *
  */
 public class FileUtil {
+	
+	/**
+	 * 获取所有文件列表，不包含目录和空目录
+	 * @param fileList
+	 * @param path
+	 * @return
+	 */
+	public static List<File> getAllFile(List<File> fileList,String path){
+		if (fileList == null)
+			fileList = new ArrayList<File>();
+		File dirFile = new File(path);
+		if(dirFile.isHidden()) return fileList;
+		if (dirFile.exists()) {
+			
+			File[] files = dirFile.listFiles();
+			if (files == null)
+				return fileList;
+			for (File fileChildDir : files) {
+				// 输出文件名或者文件夹名
+				// System.out.print(fileChildDir.getName());
+				if (fileChildDir.isDirectory()) {
+					// System.out.println(" :  此为目录名");
+					// 通过递归的方式,可以把目录中的所有文件全部遍历出来
+					getAllFile(fileList, fileChildDir.getAbsolutePath());
+				}
+				if (fileChildDir.isFile()) {
+					// System.out.println(fileChildDir.getName());
+					fileList.add(fileChildDir);
+				}
+			}
+		}
+		return fileList;
+	}
+	
+	/**
+	 * 获取所有文件，以及路径
+	 * @param fileList
+	 * @param path
+	 * @return
+	 */
+	public static List<File> getAllFileWithDir(List<File> fileList,String path) {
+		if (fileList == null)
+			fileList = new ArrayList<File>();
+		File dirFile = new File(path);
+		if(dirFile.isHidden()) return fileList;
+		if (dirFile.exists()) {
+			fileList.add(dirFile);
+			File[] files = dirFile.listFiles();
+			if (files == null)
+				return fileList;
+			for (File fileChildDir : files) {
+				// 输出文件名或者文件夹名
+				// System.out.print(fileChildDir.getName());
+				if (fileChildDir.isDirectory()) {
+					// System.out.println(" :  此为目录名");
+					// 通过递归的方式,可以把目录中的所有文件全部遍历出来
+					fileList.add(fileChildDir);
+					getAllFile(fileList, fileChildDir.getAbsolutePath());
+				}
+				if (fileChildDir.isFile()) {
+					// System.out.println(fileChildDir.getName());
+					fileList.add(fileChildDir);
+				}
+			}
+		}
+		return fileList;
+	}
+	
 	
 	// 单次传送最大字节数20M。
     private final static int maxsize_once;
@@ -90,6 +160,26 @@ public class FileUtil {
         fileStream.close();
 
         return vo;
+    }
+    
+    /**
+     * 把/替换成\
+     * @param value
+     * @return
+     */
+    public static String replaceLeftToRight(String value) {
+    	if(value == null) return null;
+    	return value.replaceAll("/", "\\\\");
+    }
+    
+    /**
+     * 把\替换成/
+     * @param value
+     * @return
+     */
+    public static String replaceRightToLeft(String value) {
+    	if(value == null) return null;
+    	return value.replaceAll("\\\\", "/");
     }
     
     
